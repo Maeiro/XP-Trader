@@ -17,7 +17,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.trading.Merchant;
 import net.minecraft.world.item.trading.MerchantOffer;
-import net.minecraft.world.item.trading.MerchantOffers;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerContainerEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -26,7 +25,6 @@ import net.minecraftforge.event.server.ServerStartedEvent;
 import net.minecraftforge.event.village.VillagerTradesEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.lang.reflect.Field;
@@ -38,12 +36,8 @@ import java.util.Objects;
 public final class XPTraderTrades {
     private static final float PRICE_MULTIPLIER = 0.0F;
     private static final String VIRTUAL_TOKEN_TAG = "xp_trader_virtual_token";
-    private static final Field MERCHANT_MENU_TRADER_FIELD =
-            ObfuscationReflectionHelper.findField(MerchantMenu.class, "trader");
-    private static final Field MERCHANT_MENU_CONTAINER_FIELD =
-            ObfuscationReflectionHelper.findField(MerchantMenu.class, "tradeContainer");
-    private static final Field MERCHANT_CONTAINER_SELECTION_HINT_FIELD =
-            ObfuscationReflectionHelper.findField(MerchantContainer.class, "selectionHint");
+    private static Field merchantMenuTraderField;
+    private static Field merchantMenuContainerField;
 
     private XPTraderTrades() {
     }
@@ -99,39 +93,20 @@ public final class XPTraderTrades {
             return;
         }
 
-        try {
-            Merchant trader = (Merchant) MERCHANT_MENU_TRADER_FIELD.get(menu);
-            if (!(trader instanceof Villager villager) || !isXpTrader(villager)) {
-                return;
-            }
-
-            MerchantContainer container = (MerchantContainer) MERCHANT_MENU_CONTAINER_FIELD.get(menu);
-            MerchantOffers offers = menu.getOffers();
-            int selectedIndex = MERCHANT_CONTAINER_SELECTION_HINT_FIELD.getInt(container);
-            MerchantOffer selectedOffer = null;
-            if (selectedIndex >= 0 && selectedIndex < offers.size()) {
-                selectedOffer = offers.get(selectedIndex);
-            } else if (!offers.isEmpty()) {
-                selectedOffer = offers.get(0);
-            }
-            if (selectedOffer == null || selectedOffer.isOutOfStock()) {
-                container.setItem(0, ItemStack.EMPTY);
-                container.setItem(1, ItemStack.EMPTY);
-                container.setChanged();
-                return;
-            }
-
-            int requiredLevels = selectedOffer.getCostA().getCount();
-            if (event.player.experienceLevel >= requiredLevels) {
-                container.setItem(0, createVirtualBottleToken(requiredLevels));
-            } else {
-                container.setItem(0, ItemStack.EMPTY);
-            }
-            container.setItem(1, ItemStack.EMPTY);
-            container.setChanged();
-        } catch (IllegalAccessException reflectionError) {
-            XPTraderMod.LOGGER.error("[XP Trader] Reflection error while feeding virtual tokens.", reflectionError);
+        Merchant trader = getTrader(menu);
+        if (!(trader instanceof Villager villager) || !isXpTrader(villager)) {
+            return;
         }
+
+        MerchantContainer container = getTradeContainer(menu);
+        if (container == null) {
+            return;
+        }
+
+        int availableLevels = Math.max(0, event.player.experienceLevel);
+        container.setItem(0, availableLevels > 0 ? createVirtualBottleToken(Math.min(64, availableLevels)) : ItemStack.EMPTY);
+        container.setItem(1, ItemStack.EMPTY);
+        container.setChanged();
     }
 
     @SubscribeEvent
@@ -185,5 +160,68 @@ public final class XPTraderTrades {
         }
         CompoundTag tag = stack.getTag();
         return tag != null && tag.getBoolean(VIRTUAL_TOKEN_TAG);
+    }
+
+    private static Merchant getTrader(MerchantMenu menu) {
+        Field traderField = getMerchantMenuTraderField();
+        if (traderField == null) {
+            return null;
+        }
+
+        try {
+            return (Merchant) traderField.get(menu);
+        } catch (IllegalAccessException error) {
+            XPTraderMod.LOGGER.error("[XP Trader] Failed to access trader from MerchantMenu.", error);
+            return null;
+        }
+    }
+
+    private static MerchantContainer getTradeContainer(MerchantMenu menu) {
+        Field tradeContainerField = getMerchantMenuContainerField();
+        if (tradeContainerField == null) {
+            return null;
+        }
+
+        try {
+            return (MerchantContainer) tradeContainerField.get(menu);
+        } catch (IllegalAccessException error) {
+            XPTraderMod.LOGGER.error("[XP Trader] Failed to access MerchantContainer from MerchantMenu.", error);
+            return null;
+        }
+    }
+
+    private static Field getMerchantMenuTraderField() {
+        if (merchantMenuTraderField == null) {
+            merchantMenuTraderField = resolveFieldByType(MerchantMenu.class, Merchant.class, "trader");
+        }
+        return merchantMenuTraderField;
+    }
+
+    private static Field getMerchantMenuContainerField() {
+        if (merchantMenuContainerField == null) {
+            merchantMenuContainerField = resolveFieldByType(MerchantMenu.class, MerchantContainer.class, "tradeContainer");
+        }
+        return merchantMenuContainerField;
+    }
+
+    private static Field resolveFieldByType(Class<?> owner, Class<?> type, String preferredName) {
+        try {
+            Field namedField = owner.getDeclaredField(preferredName);
+            if (type.isAssignableFrom(namedField.getType())) {
+                namedField.setAccessible(true);
+                return namedField;
+            }
+        } catch (NoSuchFieldException ignored) {
+        }
+
+        for (Field field : owner.getDeclaredFields()) {
+            if (type.isAssignableFrom(field.getType())) {
+                field.setAccessible(true);
+                return field;
+            }
+        }
+
+        XPTraderMod.LOGGER.error("[XP Trader] Could not resolve field of type {} in {}.", type.getName(), owner.getName());
+        return null;
     }
 }
