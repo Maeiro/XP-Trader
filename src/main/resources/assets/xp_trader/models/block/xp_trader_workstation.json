@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "xp_trader:block/xp_trader_workstation_top",
+    "bottom": "minecraft:block/enchanting_table_bottom",
+    "side": "xp_trader:block/xp_trader_workstation_side"
+  }
+}

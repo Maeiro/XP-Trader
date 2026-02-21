@@ -1,0 +1,9 @@
+{
+  "item.xp_trader.xp_trader_workstation": "Bancada do Comerciante de XP",
+  "block.xp_trader.xp_trader_workstation": "Bancada do Comerciante de XP",
+  "entity.minecraft.villager.xp_trader.xp_trader": "Comerciante de XP",
+  "message.xp_trader.villager_too_young": "Este Comerciante de XP ainda e jovem para negociar.",
+  "message.xp_trader.daily_limit": "Este Comerciante de XP esgotou as trocas de hoje (max %s).",
+  "message.xp_trader.not_enough_xp": "XP insuficiente. Precisa de %s, voce tem %s.",
+  "message.xp_trader.trade_success": "Trocou %s de XP por %s esmeralda(s)."
+}

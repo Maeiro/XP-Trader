@@ -1,0 +1,9 @@
+{
+  "item.xp_trader.xp_trader_workstation": "XP Trader Workstation",
+  "block.xp_trader.xp_trader_workstation": "XP Trader Workstation",
+  "entity.minecraft.villager.xp_trader.xp_trader": "XP Trader",
+  "message.xp_trader.villager_too_young": "This XP Trader is too young to trade.",
+  "message.xp_trader.daily_limit": "This XP Trader is out of trades for today (%s max).",
+  "message.xp_trader.not_enough_xp": "Not enough XP. Need %s, you have %s.",
+  "message.xp_trader.trade_success": "Traded %s XP for %s emerald(s)."
+}
